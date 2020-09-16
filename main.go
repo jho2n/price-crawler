@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -12,7 +13,7 @@ import (
 func work(wg *sync.WaitGroup, q string) {
 	defer wg.Done()
 
-	// fmt.Printf("==============%s===================\n", q)
+	fmt.Printf("start: %s\n", q)
 	totalItemCount, err := search.TotalCount(q)
 	if err != nil {
 		log.Panic(err)
@@ -23,11 +24,6 @@ func work(wg *sync.WaitGroup, q string) {
 		totalPageCount++
 	}
 
-	// fmt.Printf("total item count: %d\n", totalItemCount)
-	// fmt.Printf("total page count: %d\n", totalPageCount)
-
-	csv.WriteQuery(q, totalPageCount, totalItemCount)
-
 	var pResult search.ProductResult
 	var wg2 sync.WaitGroup
 	wg2.Add(3)
@@ -37,16 +33,19 @@ func work(wg *sync.WaitGroup, q string) {
 	}
 	wg2.Wait()
 
+	csv.WriteQuery(q, totalPageCount, totalItemCount)
 	csv.WriteEP(&pResult.EPS)
+	csv.WriteCP(&pResult.CPS)
+	fmt.Printf("complete: %s\n", q)
 
-	var wg3 sync.WaitGroup
-	wg3.Add(len(pResult.CPS))
+	// var wg3 sync.WaitGroup
+	// wg3.Add(len(pResult.CPS))
 
-	for i := 0; i < len(pResult.CPS); i++ {
-		item := &pResult.CPS[i]
-		go search.CompareProducts2(&wg3, item)
-	}
-	wg3.Wait()
+	// for i := 0; i < len(pResult.CPS); i++ {
+	// 	item := &pResult.CPS[i]
+	// 	go search.CompareProducts2(&wg3, item)
+	// }
+	// wg3.Wait()
 
 	// fmt.Printf("\n\n%s END\n\n", q)
 }
@@ -60,6 +59,7 @@ func main() {
 
 	csv.PrepareEPHeader()
 	csv.PrepareQueryHeader()
+	csv.PrepareCPHeader()
 	for _, q := range brands {
 		go work(&wg, q)
 	}

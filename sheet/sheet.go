@@ -95,7 +95,7 @@ func GetBrands() []string {
 	}
 
 	spreadsheetID := "19mCVlwks7UeNyWNhsbUH8slxbKNufIh4wIwd6GB8OY4"
-	readRange := "대상_1차!D8:D30"
+	readRange := "대상_1차!D8:D207"
 
 	resp, err := srv.Spreadsheets.Values.Get(spreadsheetID, readRange).Do()
 	if err != nil {

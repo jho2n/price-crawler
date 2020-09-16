@@ -15,40 +15,52 @@ import (
 
 var ssMallID = 297159
 var PagingSize = 80
-var regex = regexp.MustCompile(`\/297159\/`)
+var regex = regexp.MustCompile(`\d+\/297159\/\d+\/\d+\/\|`)
 var searchBaseURL = "https://search.shopping.naver.com/search/all"
 var compareBaseURL = "https://search.shopping.naver.com/detail/lite.nhn"
 
 type ProductResult struct {
-	EPS []EP
 	CPS []CP
+	EPS []EP
 }
 
 type EP struct {
-	Query        string `json:"query"`
-	URL          string `json:"productURL"`
-	ProductID    string `json:"productID"`
+	Category     string `json:"category"`
+	ImageURL     string `json:"imageURL"`
+	Page         int    `json:"page"`
+	Position     int    `json:"position"`
 	Price        string `json:"price"`
+	ProductID    string `json:"productID"`
 	ProductName  string `json:"productName"`
 	ProductTitle string `json:"productTitle"`
-	ImageURL     string `json:"imageURL"`
-	Category     string `json:"category"`
+	Query        string `json:"query"`
+	URL          string `json:"productURL"`
 }
 
 type CP struct {
-	ProductID    string       `json:"productID"`
-	ProductURL   string       `json:"productURL"`
+	Category     string       `json:"category"`
+	CheepsetMall string       `json:"CheepestMall"`
+	ImageURL     string       `json:"imageURL"`
+	IsCheepest   bool         `json:"isCheepest"`
 	LowPrice     string       `json:"lowPrice"`
+	MallCount    int          `json:"mallCount"`
+	MallPID      string       `json:"mallPID"`
+	MallPrice    string       `json:"mallPrice"`
+	Page         int          `json:"page"`
+	Position     int          `json:"position"`
+	ProductID    string       `json:"productID"`
 	ProductName  string       `json:"productName"`
-	ProductTitle string       `json:"productTitle"`
 	Products     []CPProducts `json:"products"`
+	ProductTitle string       `json:"productTitle"`
+	ProductURL   string       `json:"productURL"`
+	Query        string       `json:"query"`
 }
 
 type CPProducts struct {
-	URL   string `json:"url"`
-	Price string `json:"price"`
-	Name  string `json:"name"`
 	Mall  string `json:"mall"`
+	Name  string `json:"name"`
+	Price string `json:"price"`
+	URL   string `json:"url"`
 }
 
 func (cp *CP) AddProduct(item CPProducts) []CPProducts {
@@ -126,6 +138,45 @@ func replaceDoublequote(str string) string {
 	return strings.ReplaceAll(str, "\"", "")
 }
 
+func createEP(category string, query string, page int, idx int, item *gabs.Container) EP {
+	return EP{
+		Category:     category,
+		ImageURL:     replaceDoublequote(item.Search("imageUrl").String()),
+		Page:         page,
+		Position:     idx,
+		Price:        replaceDoublequote(item.Search("price").String()),
+		ProductID:    replaceDoublequote(item.Search("mallProductId").String()),
+		ProductName:  replaceDoublequote(item.Search("productName").String()),
+		ProductTitle: replaceDoublequote(item.Search("productTitle").String()),
+		Query:        query,
+		URL:          replaceDoublequote(item.Search("mallProductUrl").String()),
+	}
+}
+
+func createCP(category string, query string, page int, idx int, item *gabs.Container, hasLowPriceByMallNo string, hasSS []int) CP {
+	ssInfo := strings.Split(strings.Replace(hasLowPriceByMallNo[hasSS[0]:hasSS[1]], "|", "", -1), "/")
+	nProductID := item.Search("id").String()
+
+	p := url.Values{}
+	p.Add("nvMid", nProductID)
+	return CP{Category: category,
+		CheepsetMall: replaceDoublequote(item.Path("lowMallList.0.name").String()),
+		ImageURL:     replaceDoublequote(item.Search("imageUrl").String()),
+		IsCheepest:   hasSS[0] == 0,
+		LowPrice:     replaceDoublequote(item.Search("lowPrice").String()),
+		MallCount:    len(strings.Split(hasLowPriceByMallNo, "|")),
+		MallPID:      ssInfo[len(ssInfo)-3],
+		MallPrice:    ssInfo[len(ssInfo)-2],
+		Page:         page,
+		Position:     idx,
+		ProductID:    replaceDoublequote(nProductID),
+		ProductName:  replaceDoublequote(item.Search("productName").String()),
+		ProductTitle: replaceDoublequote(item.Search("productTitle").String()),
+		ProductURL:   replaceDoublequote(compareBaseURL + "?" + p.Encode()),
+		Query:        query,
+	}
+}
+
 func Products2(wg *sync.WaitGroup, query string, page int, pResult *ProductResult) {
 	defer wg.Done()
 	params := url.Values{}
@@ -140,45 +191,31 @@ func Products2(wg *sync.WaitGroup, query string, page int, pResult *ProductResul
 	var eps []EP
 	var cps []CP
 
-	for _, child := range container.S("list").Children() {
+	for idx, child := range container.S("list").Children() {
 		item := child.Search("item")
 		adID := item.Search("adId").String()
 		if adID != "null" {
 			continue
 		}
 		mallNo := item.Search("mallNo").Data()
-		hasLowPriceByMallNo := item.Search("lowPriceByMallNo")
+		hasLowPriceByMallNo := replaceDoublequote(item.Search("lowPriceByMallNo").String())
+		hasSS := regex.FindIndex([]byte(hasLowPriceByMallNo))
 
-		mallStr := regex.FindString(hasLowPriceByMallNo.String())
-
-		if mallNo == strconv.Itoa(ssMallID) {
+		var category string
+		if mallNo == strconv.Itoa(ssMallID) || len(hasSS) > 0 {
 			c1name := item.Search("category1Name")
 			c2name := item.Search("category2Name")
 			c3name := item.Search("category3Name")
-			ep := EP{
-				Query:        query,
-				URL:          replaceDoublequote(item.Search("mallProductUrl").String()),
-				ProductID:    replaceDoublequote(item.Search("mallProductId").String()),
-				Price:        replaceDoublequote(item.Search("price").String()),
-				ProductName:  replaceDoublequote(item.Search("productName").String()),
-				ProductTitle: replaceDoublequote(item.Search("productTitle").String()),
-				ImageURL:     replaceDoublequote(item.Search("imageUrl").String()),
-				Category:     replaceDoublequote(fmt.Sprintf("%s > %s > %s", c1name, c2name, c3name)),
-			}
+			category = replaceDoublequote(fmt.Sprintf("%s > %s > %s", c1name, c2name, c3name))
+		}
+
+		if mallNo == strconv.Itoa(ssMallID) {
+			ep := createEP(category, query, page, idx, item)
 			eps = append(eps, ep)
 		}
 
-		if len(mallStr) == 8 {
-			nProductID := item.Search("id").String()
-			p := url.Values{}
-			p.Add("nvMid", nProductID)
-			cp := CP{
-				ProductID:    replaceDoublequote(nProductID),
-				ProductURL:   replaceDoublequote(compareBaseURL + "?" + p.Encode()),
-				LowPrice:     replaceDoublequote(item.Search("lowPrice").String()),
-				ProductName:  replaceDoublequote(item.Search("productName").String()),
-				ProductTitle: replaceDoublequote(item.Search("productTitle").String()),
-			}
+		if len(hasSS) > 0 {
+			cp := createCP(category, query, page, idx, item, hasLowPriceByMallNo, hasSS)
 			cps = append(cps, cp)
 		}
 	}
@@ -186,28 +223,28 @@ func Products2(wg *sync.WaitGroup, query string, page int, pResult *ProductResul
 	pResult.CPS = append(pResult.CPS, cps...)
 }
 
-func CompareProducts2(wg *sync.WaitGroup, item *CP) {
-	defer wg.Done()
+// func CompareProducts2(wg *sync.WaitGroup, item *CP) {
+// 	defer wg.Done()
 
-	doc, err := getDoc(item.ProductURL)
-	if err != nil {
-		return
-	}
+// 	doc, err := getDoc(item.ProductURL)
+// 	if err != nil {
+// 		return
+// 	}
 
-	doc.Find("#section_price_list table[data-chnl-seq]").Each(func(i int, s *goquery.Selection) {
-		mallNameNode := s.Find("a[data-mall-name]")
-		mallName, _ := mallNameNode.Attr("data-mall-name")
+// 	doc.Find("#section_price_list table[data-chnl-seq]").Each(func(i int, s *goquery.Selection) {
+// 		mallNameNode := s.Find("a[data-mall-name]")
+// 		mallName, _ := mallNameNode.Attr("data-mall-name")
 
-		pNameNode := s.Find("td.lft > a")
-		pName := strings.TrimSpace(pNameNode.Text())
-		pLink, _ := pNameNode.Attr("href")
-		price, _ := pNameNode.Attr("data-product-price")
-		cmp := CPProducts{
-			Mall:  mallName,
-			Name:  pName,
-			Price: price,
-			URL:   pLink,
-		}
-		item.AddProduct(cmp)
-	})
-}
+// 		pNameNode := s.Find("td.lft > a")
+// 		pName := strings.TrimSpace(pNameNode.Text())
+// 		pLink, _ := pNameNode.Attr("href")
+// 		price, _ := pNameNode.Attr("data-product-price")
+// 		cmp := CPProducts{
+// 			Mall:  mallName,
+// 			Name:  pName,
+// 			Price: price,
+// 			URL:   pLink,
+// 		}
+// 		item.AddProduct(cmp)
+// 	})
+// }
