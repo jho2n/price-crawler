@@ -13,3 +13,12 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+.vscode
+token.json
+sheet/credentials.json
+credentials.json
+**/*.bak
+**/*.csv
+**/*.json
+**/*.html
