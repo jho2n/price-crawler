@@ -15,8 +15,7 @@ var date string
 
 func init() {
 	time.LoadLocation("Asia/Seoul")
-	// 15:04:05
-	date = time.Now().Format("2006-01-02")
+	date = time.Now().Format("2006-01-02 	15:04:05")
 }
 
 func PrepareEPHeader() {
@@ -27,7 +26,7 @@ func PrepareEPHeader() {
 	}
 
 	wr := csv.NewWriter(bufio.NewWriter(file))
-	wr.Write([]string{"no", "날짜", "키워드", "상품번호", "이미지", "카테고리", "상품명", "서울스토어 가격", "페이지수", "위치"})
+	wr.Write([]string{"no", "날짜/시간", "키워드", "상품번호", "URL", "이미지", "카테고리", "상품명", "서울스토어 가격", "페이지수", "위치"})
 	wr.Flush()
 }
 
@@ -39,7 +38,7 @@ func PrepareQueryHeader() {
 	}
 
 	wr := csv.NewWriter(bufio.NewWriter(file))
-	wr.Write([]string{"no", "날짜", "키워드", "페이지수", "노출상품수"})
+	wr.Write([]string{"no", "날짜/시간", "키워드", "페이지수", "노출상품수"})
 	wr.Flush()
 }
 
@@ -51,7 +50,7 @@ func PrepareCPHeader() {
 	}
 
 	wr := csv.NewWriter(bufio.NewWriter(file))
-	wr.Write([]string{"no", "날짜", "키워드", "id", "경쟁업체수", "최저가여부", "최저가업체", "최저가", "상품번호", "이미지", "카테고리", "상품명", "서울스토어가격", "페이지수", "위치"})
+	wr.Write([]string{"no", "날짜/시간", "키워드", "id", "N-URL", "경쟁업체수", "최저가여부", "최저가업체", "최저가", "상품번호", "S-URL", "이미지", "카테고리", "상품명", "서울스토어가격", "페이지수", "위치"})
 	wr.Flush()
 }
 
@@ -65,7 +64,7 @@ func WriteEP(eps *[]search.EP) {
 	var str [][]string
 	wr := csv.NewWriter(bufio.NewWriter(file))
 	for idx, ep := range *eps {
-		str = append(str, []string{strconv.Itoa(idx), date, ep.Query, ep.ProductID, ep.ImageURL, ep.Category, ep.ProductName, ep.Price, strconv.Itoa(ep.Page), strconv.Itoa(ep.Position)})
+		str = append(str, []string{strconv.Itoa(idx), date, ep.Query, ep.ProductID, ep.URL, ep.ImageURL, ep.Category, ep.ProductName, ep.Price, strconv.Itoa(ep.Page), strconv.Itoa(ep.Position)})
 	}
 
 	wr.WriteAll(str)
@@ -98,7 +97,7 @@ func WriteCP(cps *[]search.CP) {
 		if cp.IsCheepest {
 			isCheepest = "Y"
 		}
-		str = append(str, []string{strconv.Itoa(idx), date, cp.Query, cp.ProductID, strconv.Itoa(cp.MallCount), isCheepest, cp.CheepsetMall, cp.LowPrice, cp.MallPID, cp.ImageURL, cp.Category, cp.ProductName, cp.MallPrice, strconv.Itoa(cp.Page), strconv.Itoa(cp.Position)})
+		str = append(str, []string{strconv.Itoa(idx), date, cp.Query, cp.ProductID, cp.ProductURL, strconv.Itoa(cp.MallCount), isCheepest, cp.CheepsetMall, cp.LowPrice, cp.MallPID, fmt.sprintf("https://www.seoulstore.com/products/%s/detail", cp.MallPID), cp.ImageURL, cp.Category, cp.ProductName, cp.MallPrice, strconv.Itoa(cp.Page), strconv.Itoa(cp.Position)})
 	}
 
 	wr.WriteAll(str)
