@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/seoulstore/price-crawler/csv"
 	"github.com/seoulstore/price-crawler/search"
@@ -62,6 +63,8 @@ func main() {
 	csv.PrepareCPHeader()
 	for _, q := range brands {
 		go work(&wg, q)
+
+		time.Sleep(time.Second * 1)
 	}
 
 	wg.Wait()

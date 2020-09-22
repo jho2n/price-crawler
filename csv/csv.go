@@ -3,6 +3,7 @@ package csv
 import (
 	"bufio"
 	"encoding/csv"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -97,7 +98,7 @@ func WriteCP(cps *[]search.CP) {
 		if cp.IsCheepest {
 			isCheepest = "Y"
 		}
-		str = append(str, []string{strconv.Itoa(idx), date, cp.Query, cp.ProductID, cp.ProductURL, strconv.Itoa(cp.MallCount), isCheepest, cp.CheepsetMall, cp.LowPrice, cp.MallPID, fmt.sprintf("https://www.seoulstore.com/products/%s/detail", cp.MallPID), cp.ImageURL, cp.Category, cp.ProductName, cp.MallPrice, strconv.Itoa(cp.Page), strconv.Itoa(cp.Position)})
+		str = append(str, []string{strconv.Itoa(idx), date, cp.Query, cp.ProductID, cp.ProductURL, strconv.Itoa(cp.MallCount), isCheepest, cp.CheepsetMall, cp.LowPrice, cp.MallPID, fmt.Sprintf("https://www.seoulstore.com/products/%s/detail", cp.MallPID), cp.ImageURL, cp.Category, cp.ProductName, cp.MallPrice, strconv.Itoa(cp.Page), strconv.Itoa(cp.Position)})
 	}
 
 	wr.WriteAll(str)
